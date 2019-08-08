@@ -318,6 +318,8 @@ int main(int argc, char *argv[]) {
     NS_LOG_INFO ("Initialize Global Routing.");
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
+    Simulator::Stop (Seconds (stopTime));
+
     // Ipv4GlobalRoutingHelper g;
     // Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
     // g.PrintRoutingTableAllAt (Seconds (1), routingStream);
@@ -335,25 +337,21 @@ int main(int argc, char *argv[]) {
     // Now, do the actual simulation.
     //
     NS_LOG_INFO("Run Simulation.");
-    /*Simulator::Stop(Seconds(100.0));*/
-    // for (size_t i = 0; i < 10; i++) {
-    Simulator::Run();
-    uint32_t k;
-    for (size_t i = 0; i < 2; i++) {
-        for (k = 0; k < users; k++) {
-            Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));
-            std::cout << protocols[k % protoNum] << "-Node: " << k;
-            std::string str = app->GetStats();
 
-            store(n_nodes, layer, users, str);
-        }
+    Simulator::Run();
+    Simulator::Destroy();
+    NS_LOG_INFO("Done.");
+
+    uint32_t k;
+
+    for (k = 0; k < users; k++) {
+        Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));
+        std::cout << protocols[k % protoNum] << "-Node: " << k;
+        std::string str = app->GetStats();
+
+        store(n_nodes, layer, users, str);
     }
     calcAvg(n_nodes, layer, users);
-
-    Simulator::Destroy();
-    // }
-
-    NS_LOG_INFO("Done.");
 
     return 0;
 }
