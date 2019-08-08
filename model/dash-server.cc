@@ -106,8 +106,11 @@ namespace ns3
                     NS_FATAL_ERROR("Error: joining multicast on a non-UDP socket");
                 }
             }
+
+
         }
 
+        std::cout << "Wainting connetion ..." << '\n';
         m_socket->SetRecvCallback(MakeCallback(&DashServer::HandleRead, this));
 
         m_socket->SetAcceptCallback(
@@ -168,14 +171,14 @@ namespace ns3
     void DashServer::HandleAccept(Ptr<Socket> s, const Address& from) {
         NS_LOG_FUNCTION(this << s << from);
 
-        std::cout << "[Cloude Node] Connecting Client ..." << '\n';
+        // std::cout << "[Cloude Node] Connecting Client ..." << '\n';
 
         s->SetRecvCallback(MakeCallback(&DashServer::HandleRead, this));
         s->SetSendCallback(MakeCallback(&DashServer::DataSend, this));
 
         m_socketList.push_back(s);
 
-        this->nodeMap[s] = NodeType::User;
+        // this->nodeMap[s] = NodeType::User;
 
         // Ptr<Socket> fog = ConnectFog();
 

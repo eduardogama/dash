@@ -74,7 +74,6 @@ namespace ns3
 
             Address m_local;       // Local address to bind to
 
-
             uint32_t m_fog_segmentId;    // The id of the current segment
 
             uint32_t m_totalRx;    // Total bytes received

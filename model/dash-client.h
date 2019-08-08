@@ -28,6 +28,9 @@
 #include "ns3/traced-callback.h"
 #include "http-parser.h"
 
+#include <cstdio>
+#include <string>
+
 namespace ns3
 {
 
@@ -77,7 +80,7 @@ namespace ns3
         /**
          * \brief Prints some statistics.
          */
-        void GetStats();
+        std::string GetStats();
 
         /**
          * \return The MpegPlayer object that is used for buffering and
@@ -143,6 +146,7 @@ namespace ns3
         void ConnectionFogSucceeded(Ptr<Socket> socket);
         void ConnectionFogFailed(Ptr<Socket> socket);
 
+        Ptr<Socket> *target_socket;
 
         MpegPlayer m_player;     // The MpegPlayer object
         HttpParser m_parser;     // An HttpParser object for parsing the incoming stream into http messages
@@ -167,6 +171,8 @@ namespace ns3
         uint32_t m_bitRate;      // The bitrate of the current segment.
         Time m_window;
         Time m_segmentFetchTime;
+
+        uint32_t m_segment_total;
     };
 
 } // namespace ns3

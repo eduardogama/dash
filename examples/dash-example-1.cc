@@ -172,22 +172,22 @@ int main(int argc, char *argv[]) {
     DashServerHelper server("ns3::TcpSocketFactory",
       InetSocketAddress(Ipv4Address::GetAny(), port));
 
-    ApplicationContainer serverApps = server.Install(p2pNodes.Get(0));
+    ApplicationContainer serverApps = server.Install(p2pNodes.Get(1));
     serverApps.Start(Seconds(0.0));
     serverApps.Stop(Seconds(stopTime + 5.0));
 
 
     // Building fog nodes connections
     CacheServiceHelper cache("ns3::TcpSocketFactory",
-        InetSocketAddress(p2pInterfaces.GetAddress(1), port),     // Fog node which will be a Socket server
-        InetSocketAddress(p2pInterfaces.GetAddress(0), port));    // Fog node which will be a Socket client
+        InetSocketAddress(p2pInterfaces.GetAddress(0), port),     // Fog node which will be a Socket server
+        InetSocketAddress(p2pInterfaces.GetAddress(1), port));    // Fog node which will be a Socket client
 
     // Ptr<Socket> ns3TcpSocket = Socket::CreateSocket(nodes.Get(0), TcpSocketFactory::GetTypeId ());
 
     // Ptr<CacheService> app = CreateObject<CacheService>();
     // app->Setup(ns3TcpSocket, sinkAddress, 1040, 1000, DataRate ("1Mbps"));
 
-    ApplicationContainer cacheApp = cache.Install(p2pNodes.Get(1));
+    ApplicationContainer cacheApp = cache.Install(p2pNodes.Get(0));
     cacheApp.Start(Seconds(0.0));
     cacheApp.Stop(Seconds(stopTime + 5.0));
 

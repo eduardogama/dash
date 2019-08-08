@@ -39,19 +39,16 @@ namespace ns3
     TypeId DashClient::GetTypeId(void) {
         static TypeId tid =
         TypeId("ns3::DashClient").SetParent<Application>().AddConstructor<DashClient>()
-            .AddAttribute("VideoId",
-            "The Id of the video that is played.", UintegerValue(0),
-            MakeUintegerAccessor(&DashClient::m_videoId),
-            MakeUintegerChecker<uint32_t>(1))
+            .AddAttribute("VideoId", "The Id of the video that is played.", UintegerValue(0),
+            MakeUintegerAccessor(&DashClient::m_videoId), MakeUintegerChecker<uint32_t>(1))
             .AddAttribute("Remote", "The address of the destination", AddressValue(),
             MakeAddressAccessor(&DashClient::m_peer), MakeAddressChecker())
             .AddAttribute("FogRemote", "The address of the destination", AddressValue(),
             MakeAddressAccessor(&DashClient::m_fog_peer), MakeAddressChecker())
-            .AddAttribute("Protocol", "The type of TCP protocol to use.",
-            TypeIdValue(TcpSocketFactory::GetTypeId()),
+            .AddAttribute("Protocol", "The type of TCP protocol to use.", TypeIdValue(TcpSocketFactory::GetTypeId()),
             MakeTypeIdAccessor(&DashClient::m_tid), MakeTypeIdChecker())
-            .AddAttribute("TargetDt", "The target buffering time",
-            TimeValue(Time("35s")), MakeTimeAccessor(&DashClient::m_target_dt), MakeTimeChecker())
+            .AddAttribute("TargetDt", "The target buffering time", TimeValue(Time("35s")),
+            MakeTimeAccessor(&DashClient::m_target_dt), MakeTimeChecker())
             .AddAttribute("window", "The window for measuring the average throughput (Time)",
             TimeValue(Time("10s")), MakeTimeAccessor(&DashClient::m_window),
             MakeTimeChecker()).AddTraceSource("Tx", "A new packet is created and is sent",
@@ -61,11 +58,11 @@ namespace ns3
     }
 
     DashClient::DashClient() :
-      m_rateChanges(0), m_target_dt("35s"), m_bitrateEstimate(0.0), m_segmentId(
-          0), m_socket(0), m_connected(false), m_totBytes(0), m_startedReceiving(
+      m_rateChanges(0), m_target_dt("35s"), m_bitrateEstimate(0.0), m_segmentId(0),
+          m_socket(0), m_connected(false), m_totBytes(0), m_startedReceiving(
           Seconds(0)), m_sumDt(Seconds(0)), m_lastDt(Seconds(-1)), m_id(
           m_countObjs++), m_requestTime("0s"), m_segment_bytes(0), m_bitRate(
-          45000), m_window(Seconds(10)), m_segmentFetchTime(Seconds(0)) {
+          45000), m_window(Seconds(10)), m_segmentFetchTime(Seconds(0)),  m_segment_total(1000) {
         NS_LOG_FUNCTION(this);
         m_parser.SetApp(this); // So the parser knows where to send the received messages
     }
@@ -118,6 +115,8 @@ namespace ns3
                 MakeCallback(&DashClient::ConnectionFailed, this));
             m_socket->SetSendCallback(MakeCallback(&DashClient::DataSend, this));
         }
+        target_socket = &m_socket;
+
         NS_LOG_INFO("Just started connection");
     }
 
@@ -142,6 +141,11 @@ namespace ns3
             return;
         }
 
+        if(m_segmentId == m_segment_total){
+            m_player.setEndPlayer(true);
+            return;
+        }
+
         Ptr<Packet> packet = Create<Packet>(100);
 
         HTTPHeader httpHeader;
@@ -153,7 +157,7 @@ namespace ns3
         packet->AddHeader(httpHeader);
 
         int res = 0;
-        if (((unsigned) (res = m_socket->Send(packet))) != packet->GetSize()) {
+        if (((unsigned) (res = (*target_socket)->Send(packet))) != packet->GetSize()) {
             NS_FATAL_ERROR(
                 "Oh oh. Couldn't send packet! res=" << res << " size=" << packet->GetSize());
         }
@@ -164,7 +168,6 @@ namespace ns3
 
     void DashClient::HandleRead(Ptr<Socket> socket) {
         NS_LOG_FUNCTION(this << socket);
-
         m_parser.ReadSocket(socket);
     }
 
@@ -194,8 +197,7 @@ namespace ns3
         NS_LOG_FUNCTION(this << message);
 
         if(m_segmentId >= 20 && !m_fog_socket){
-            std::cout << "Segment ID maior que 20! Conectar ao socket na fog." << std::endl;
-
+            // std::cout << "Segment ID maior que 20! Conectar ao socket na fog." << std::endl;
             ConnectToFog();
         }
 
@@ -211,8 +213,7 @@ namespace ns3
         message.RemoveHeader(httpHeader);
 
         // Calculate the buffering time
-        switch (m_player.m_state)
-        {
+        switch (m_player.m_state) {
             case MPEG_PLAYER_PLAYING:
                 m_sumDt += m_player.GetRealPlayTime(mpegHeader.GetPlaybackTime());
                 break;
@@ -227,8 +228,9 @@ namespace ns3
         // If we received the last frame of the segment
         if (mpegHeader.GetFrameId() == MPEG_FRAMES_PER_SEGMENT - 1) {
 
-            if(m_segmentId >= 20){
-                std::cout << "Segment ID maior que 20! Ultimo frame do segmento recebido." << std::endl;
+            if(m_segmentId == m_segment_total){
+                m_player.setEndPlayer(true);
+                return;
             }
 
             m_segmentFetchTime = Simulator::Now() - m_requestTime;
@@ -261,6 +263,13 @@ namespace ns3
             }
 
             if (bufferDelay == Seconds(0)) {
+                if(m_segmentId >= 20 && m_fog_socket != *target_socket) {
+                    target_socket = &m_fog_socket;
+
+                    // std::cout << "entrou  " << m_fog_socket << "!!!" << '\n';
+                    m_socket->Close();
+                }
+
                 RequestSegment();
             } else {
                 m_player.SchduleBufferWakeup(bufferDelay, this);
@@ -272,7 +281,7 @@ namespace ns3
                     << m_player.m_interruption_time.GetSeconds() << " T: "
                     << currDt.GetSeconds() << " dT: "
                     << (m_lastDt >= 0 ? (currDt - m_lastDt).GetSeconds() : 0)
-                    << " del: " << bufferDelay << std::endl;
+                    << " del: " << bufferDelay << " buffLevel: " << m_player.GetQueueSize() << std::endl;
 
             NS_LOG_INFO(
                 "==== Last frame received. Requesting segment " << m_segmentId);
@@ -315,21 +324,22 @@ namespace ns3
                 MakeCallback(&DashClient::ConnectionFogFailed, this));
             m_fog_socket->SetSendCallback(MakeCallback(&DashClient::DataSend, this));
         }
+
         NS_LOG_INFO("Just started connection");
     }
 
     void DashClient::ConnectionFogSucceeded(Ptr<Socket> socket) {
         NS_LOG_FUNCTION(this << socket);
-        NS_LOG_LOGIC("DashClient Connection succeeded");
+        NS_LOG_LOGIC("DashClient Fog Connection succeeded");
         m_connected = true;
         // RequestSegment();
     }
 
     void DashClient::ConnectionFogFailed(Ptr<Socket> socket) {
         NS_LOG_FUNCTION(this << socket);NS_LOG_LOGIC(
-            "DashClient, Connection Failed");
+            "DashClient, Fog Connection Failed");
 
-        std::cout << "deu ruim !!!" << '\n';
+        // std::cout << "DashClient, Fog Connection Failed" << '\n';
     }
 
     void DashClient::CalcNextSegment(uint32_t currRate, uint32_t & nextRate, Time & delay) {
@@ -337,14 +347,21 @@ namespace ns3
         delay = Seconds(0);
     }
 
-    void DashClient::GetStats() {
+    std::string DashClient::GetStats() {
         std::cout << " InterruptionTime: "
-        << m_player.m_interruption_time.GetSeconds() << " interruptions: "
-        << m_player.m_interrruptions << " avgRate: "
-        << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed
-        << " minRate: " << m_player.m_minRate << " AvgDt: "
-        << m_sumDt.GetSeconds() / m_player.m_framesPlayed << " changes: "
-        << m_rateChanges << std::endl;
+            << m_player.m_interruption_time.GetSeconds() << " interruptions: "
+            << m_player.m_interrruptions << " avgRate: "
+            << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed
+            << " minRate: " << m_player.m_minRate << " AvgDt: "
+            << m_sumDt.GetSeconds() / m_player.m_framesPlayed << " changes: "
+            << m_rateChanges << " crrS: " << m_segmentId << std::endl;
+
+        std::stringstream data;
+        data << m_player.m_interrruptions  << " "
+            << m_player.m_interruption_time.GetSeconds() << " "
+            << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed;
+
+        return data.str();
     }
 
     void DashClient::LogBufferLevel(Time t) {
@@ -367,36 +384,34 @@ namespace ns3
         return sum / count;
     }
 
-        double DashClient::GetBufferDifferential() {
-            std::map<Time, Time>::iterator it = m_bufferState.end();
+    double DashClient::GetBufferDifferential() {
+        std::map<Time, Time>::iterator it = m_bufferState.end();
 
-            if (it == m_bufferState.begin()) {
-                // Empty buffer
-                return 0;
-            }
-            it--;
-            Time last = it->second;
-
-            if (it == m_bufferState.begin()) {
-                // Only one element
-                return 0;
-            }
-            it--;
-            Time prev = it->second;
-            return (last - prev).GetSeconds();
+        if (it == m_bufferState.begin()) {
+            // Empty buffer
+            return 0;
         }
+        it--;
+        Time last = it->second;
+
+        if (it == m_bufferState.begin()) {
+            // Only one element
+            return 0;
+        }
+        it--;
+        Time prev = it->second;
+        return (last - prev).GetSeconds();
+    }
 
     double DashClient::GetSegmentFetchTime() {
         return m_segmentFetchTime.GetSeconds();
     }
 
-    void DashClient::AddBitRate(Time time, double bitrate)
-    {
+    void DashClient::AddBitRate(Time time, double bitrate) {
         m_bitrates[time] = bitrate;
         double sum = 0;
         int count = 0;
-        for (std::map<Time, double>::iterator it = m_bitrates.begin(); it != m_bitrates.end(); ++it)
-        {
+        for (std::map<Time, double>::iterator it = m_bitrates.begin(); it != m_bitrates.end(); ++it) {
             if (it->first < (Simulator::Now() - m_window)) {
                 m_bitrates.erase(it->first);
             } else {

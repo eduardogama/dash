@@ -13,3 +13,11 @@ def build(bld):
     obj.source = 'dash-fog-example.cc'
     obj = bld.create_ns3_program('dash-example-1', ['dash'])
     obj.source = 'dash-example-1.cc'
+    obj = bld.create_ns3_program('dash-matrix-topology', ['dash'])
+    obj.source = 'dash-matrix-topology.cc'
+    obj = bld.create_ns3_program('dash-matrix-topology-1', ['dash'])
+    obj.source = 'dash-matrix-topology-1.cc'
+    obj = bld.create_ns3_program('dash-intro', ['dash'])
+    obj.source = 'dash-intro.cc'
+    obj = bld.create_ns3_program('dash-backhaul', ['dash'])
+    obj.source = 'dash-backhaul.cc'

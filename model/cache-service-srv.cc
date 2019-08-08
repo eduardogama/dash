@@ -57,14 +57,12 @@ namespace ns3
         return m_socket;
     }
 
-    std::list<Ptr<Socket>> CacheService::GetAcceptedSockets(void) const
-    {
+    std::list<Ptr<Socket>> CacheService::GetAcceptedSockets(void) const {
         NS_LOG_FUNCTION(this);
         return m_socketList;
     }
 
-    void CacheService::DoDispose(void)
-    {
+    void CacheService::DoDispose(void) {
         NS_LOG_FUNCTION(this);
         m_socket = 0;
         m_socketList.clear();

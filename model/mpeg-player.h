@@ -40,20 +40,19 @@ namespace ns3
   public:
     MpegPlayer();
 
+
     virtual
     ~MpegPlayer();
 
-    void
-    ReceiveFrame(Ptr<Packet> message);
+    void ReceiveFrame(Ptr<Packet> message);
 
-    int
-    GetQueueSize();
+    int GetQueueSize();
 
-    void
-    Start();
+    void setEndPlayer(bool end_player);
 
-    Time
-    GetRealPlayTime(Time playTime);
+    void Start();
+
+    Time GetRealPlayTime(Time playTime);
 
     void inline
     SchduleBufferWakeup(const Time t, DashClient * client)
@@ -79,6 +78,8 @@ namespace ns3
     std::queue<Ptr<Packet> > m_queue;
     Time m_bufferDelay;
     DashClient * m_dashClient;
+    bool end_player;
+
 
   };
 } // namespace ns3

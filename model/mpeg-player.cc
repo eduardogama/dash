@@ -33,7 +33,7 @@ namespace ns3
 
     MpegPlayer::MpegPlayer() :
       m_state(MPEG_PLAYER_NOT_STARTED), m_interrruptions(0), m_totalRate(0), m_minRate(
-          100000000), m_framesPlayed(0), m_bufferDelay("0s") {
+          100000000), m_framesPlayed(0), m_bufferDelay("0s"), end_player(false) {
         NS_LOG_FUNCTION(this);
     }
 
@@ -43,6 +43,10 @@ namespace ns3
 
     int MpegPlayer::GetQueueSize() {
         return m_queue.size();
+    }
+
+    void MpegPlayer::setEndPlayer(bool _end_player) {
+        end_player = _end_player;
     }
 
     Time MpegPlayer::GetRealPlayTime(Time playTime) {
@@ -89,10 +93,16 @@ namespace ns3
         }
 
         if (m_queue.empty()) {
+
+            if(end_player) {
+                return;
+            }
+
             NS_LOG_INFO(Simulator::Now().GetSeconds() << " No frames to play");
             m_state = MPEG_PLAYER_PAUSED;
             m_lastpaused = Simulator::Now();
             m_interrruptions++;
+
             return;
         }
 
@@ -134,6 +144,7 @@ namespace ns3
         << " now: " << Simulator::Now().GetSeconds()
         << std::endl;
         */
+
         Simulator::Schedule(MilliSeconds(20), &MpegPlayer::PlayFrame, this);
     }
 } // namespace ns3
