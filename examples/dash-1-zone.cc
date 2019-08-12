@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
     NS_LOG_INFO ("Initialize Global Routing.");
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-    Simulator::Stop (Seconds (stopTime));
+    Simulator::Stop(Seconds(stopTime));
 
     // Ipv4GlobalRoutingHelper g;
     // Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
@@ -347,9 +347,9 @@ int main(int argc, char *argv[]) {
     //
     NS_LOG_INFO("Run Simulation.");
 
-    AnimationInterface anim ("animation.xml");
+    // AnimationInterface anim ("animation.xml");
 
-    anim.SetMaxPktsPerTraceFile(50000);// if u want 50000packets per trace file
+    // anim.SetMaxPktsPerTraceFile(50000);// if u want 50000packets per trace file
 
     // anim.SetConstantPosition (node, double x, double y);
 
