@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Nicola Baldo <nbaldo@cttc.es>
- * 
+ *
  * Edited by: Dimitrios J. Vergados <djvergad@gmail.com>
  */
 
@@ -37,10 +37,12 @@
 #include <sstream>
 #include <vector>
 
-// The topology of this simulation program is inspired from 
+#include "ns3/netanim-module.h"
+
+// The topology of this simulation program is inspired from
 // 3GPP R4-092042, Section 4.2.1 Dual Stripe Model
 // note that the term "apartments" used in that document matches with
-// the term "room" used in the BuildingsMobilityModel 
+// the term "room" used in the BuildingsMobilityModel
 
 using namespace ns3;
 
@@ -82,7 +84,7 @@ private:
    */
   bool OverlapsWithAnyPrevious (Box box);
   Box m_area; ///< Area
-  uint32_t m_nApartmentsX; ///< X apartments 
+  uint32_t m_nApartmentsX; ///< X apartments
   uint32_t m_nFloors; ///< number of floors
   std::list<Box> m_previousBlocks; ///< previous bocks
   double m_xSize; ///< X size
@@ -107,7 +109,7 @@ FemtocellBlockAllocator::FemtocellBlockAllocator (Box area, uint32_t nApartments
   m_yMinVar->SetAttribute ("Max", DoubleValue (area.yMax - m_ySize));
 }
 
-void 
+void
 FemtocellBlockAllocator::Create (uint32_t n)
 {
   for (uint32_t i = 0; i < n; ++i)
@@ -121,7 +123,7 @@ FemtocellBlockAllocator::Create ()
 {
   Box box;
   uint32_t attempt = 0;
-  do 
+  do
     {
       NS_ASSERT_MSG (attempt < 100, "Too many failed attempts to position apartment block. Too many blocks? Too small area?");
       box.xMin = m_xMinVar->GetValue ();
@@ -137,7 +139,7 @@ FemtocellBlockAllocator::Create ()
   Ptr<GridBuildingAllocator>  gridBuildingAllocator;
   gridBuildingAllocator = CreateObject<GridBuildingAllocator> ();
   gridBuildingAllocator->SetAttribute ("GridWidth", UintegerValue (1));
-  gridBuildingAllocator->SetAttribute ("LengthX", DoubleValue (10*m_nApartmentsX)); 
+  gridBuildingAllocator->SetAttribute ("LengthX", DoubleValue (10*m_nApartmentsX));
   gridBuildingAllocator->SetAttribute ("LengthY", DoubleValue (10*2));
   gridBuildingAllocator->SetAttribute ("DeltaX", DoubleValue (10));
   gridBuildingAllocator->SetAttribute ("DeltaY", DoubleValue (10));
@@ -150,7 +152,7 @@ FemtocellBlockAllocator::Create ()
   gridBuildingAllocator->Create (2);
 }
 
-bool 
+bool
 FemtocellBlockAllocator::OverlapsWithAnyPrevious (Box box)
 {
   for (std::list<Box>::iterator it = m_previousBlocks.begin (); it != m_previousBlocks.end (); ++it)
@@ -163,7 +165,7 @@ FemtocellBlockAllocator::OverlapsWithAnyPrevious (Box box)
   return false;
 }
 
-void 
+void
 PrintGnuplottableBuildingListToFile (std::string filename)
 {
   std::ofstream outFile;
@@ -186,7 +188,7 @@ PrintGnuplottableBuildingListToFile (std::string filename)
     }
 }
 
-void 
+void
 PrintGnuplottableUeListToFile (std::string filename)
 {
   std::ofstream outFile;
@@ -214,7 +216,7 @@ PrintGnuplottableUeListToFile (std::string filename)
     }
 }
 
-void 
+void
 PrintGnuplottableEnbListToFile (std::string filename)
 {
   std::ofstream outFile;
@@ -400,14 +402,14 @@ main (int argc, char *argv[])
 {
   // change some default attributes so that they are reasonable for
   // this scenario, but do this before processing command line
-  // arguments, so that the user is allowed to override these settings 
+  // arguments, so that the user is allowed to override these settings
   Config::SetDefault ("ns3::UdpClient::Interval", TimeValue (MilliSeconds (1)));
   Config::SetDefault ("ns3::UdpClient::MaxPackets", UintegerValue (1000000));
   Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue (10 * 1024));
 
   // LogComponentEnable ("BulkSendApplication", LOG_LEVEL_ALL);
   LogComponentEnable ("LenaDash", LOG_LEVEL_ALL);
-  
+
   LogComponentEnable("MobilityHelper", LOG_LEVEL_ALL);
   LogComponentEnable("Ns2MobilityHelper", LOG_LEVEL_ALL);
   LogComponentEnable("GeographicPositions", LOG_LEVEL_ALL);
@@ -428,7 +430,7 @@ main (int argc, char *argv[])
   ConfigStore inputConfig;
   inputConfig.ConfigureDefaults ();
   // parse again so you can override input file default values via command line
-  cmd.Parse (argc, argv); 
+  cmd.Parse (argc, argv);
 
   // the scenario parameters get their values from the global attributes defined above
   UintegerValue uintegerValue;
@@ -522,9 +524,9 @@ main (int argc, char *argv[])
       uint32_t nMacroEnbSitesY = rowIndex;
       NS_LOG_LOGIC ("nMacroEnbSitesY = " << nMacroEnbSitesY);
 
-      macroUeBox = Box (-areaMarginFactor*interSiteDistance, 
-                        (nMacroEnbSitesX + areaMarginFactor)*interSiteDistance, 
-                        -areaMarginFactor*interSiteDistance, 
+      macroUeBox = Box (-areaMarginFactor*interSiteDistance,
+                        (nMacroEnbSitesX + areaMarginFactor)*interSiteDistance,
+                        -areaMarginFactor*interSiteDistance,
                         (nMacroEnbSitesY -1)*interSiteDistance*sqrt (0.75) + areaMarginFactor*interSiteDistance,
                         ueZ, ueZ);
     }
@@ -609,7 +611,7 @@ main (int argc, char *argv[])
       // this enables handover for macro eNBs
       lteHelper->AddX2Interface (macroEnbs);
     }
-  
+
   // HomeEnbs randomly indoor
 
   Ptr<PositionAllocator> positionAlloc = CreateObject<RandomRoomPositionAllocator> ();
@@ -637,10 +639,9 @@ main (int argc, char *argv[])
 
   // macro Ues
   NS_LOG_LOGIC ("randomly allocating macro UEs in " << macroUeBox << " speedMin " << outdoorUeMinSpeed << " speedMax " << outdoorUeMaxSpeed);
-  if (outdoorUeMaxSpeed!=0.0)
-    {
+  if (outdoorUeMaxSpeed!=0.0) {
       mobility.SetMobilityModel ("ns3::SteadyStateRandomWaypointMobilityModel");
-      
+
       Config::SetDefault ("ns3::SteadyStateRandomWaypointMobilityModel::MinX", DoubleValue (macroUeBox.xMin));
       Config::SetDefault ("ns3::SteadyStateRandomWaypointMobilityModel::MinY", DoubleValue (macroUeBox.yMin));
       Config::SetDefault ("ns3::SteadyStateRandomWaypointMobilityModel::MaxX", DoubleValue (macroUeBox.xMax));
@@ -656,7 +657,7 @@ main (int argc, char *argv[])
       positionAlloc = CreateObject<RandomBoxPositionAllocator> ();
       mobility.SetPositionAllocator (positionAlloc);
       mobility.Install (macroUes);
-      
+
       // forcing initialization so we don't have to wait for Nodes to
       // start before positions are assigned (which is needed to
       // output node positions to file and to make AttachToClosestEnb work)
@@ -666,9 +667,7 @@ main (int argc, char *argv[])
         {
           (*it)->Initialize ();
         }
-    }
-    else
-    {
+    } else {
       positionAlloc = CreateObject<RandomBoxPositionAllocator> ();
       Ptr<UniformRandomVariable> xVal = CreateObject<UniformRandomVariable> ();
       xVal->SetAttribute ("Min", DoubleValue (macroUeBox.xMin));
@@ -774,7 +773,7 @@ main (int argc, char *argv[])
 
       // randomize a bit start times to avoid simulation artifacts
       // (e.g., buffer overflows due to packet transmissions happening
-      // exactly at the same time) 
+      // exactly at the same time)
       Ptr<UniformRandomVariable> startTimeSeconds = CreateObject<UniformRandomVariable> ();
       if (useUdp)
         {
@@ -808,7 +807,7 @@ main (int argc, char *argv[])
                       NS_LOG_LOGIC ("installing UDP DL app for UE " << u);
                       UdpClientHelper dlClientHelper (ueIpIfaces.GetAddress (u), dlPort);
                       clientApps.Add (dlClientHelper.Install (remoteHost));
-                      PacketSinkHelper dlPacketSinkHelper ("ns3::UdpSocketFactory", 
+                      PacketSinkHelper dlPacketSinkHelper ("ns3::UdpSocketFactory",
                                                            InetSocketAddress (Ipv4Address::GetAny (), dlPort));
                       serverApps.Add (dlPacketSinkHelper.Install (ue));
                     }
@@ -817,7 +816,7 @@ main (int argc, char *argv[])
                       NS_LOG_LOGIC ("installing UDP UL app for UE " << u);
                       UdpClientHelper ulClientHelper (remoteHostAddr, ulPort);
                       clientApps.Add (ulClientHelper.Install (ue));
-                      PacketSinkHelper ulPacketSinkHelper ("ns3::UdpSocketFactory", 
+                      PacketSinkHelper ulPacketSinkHelper ("ns3::UdpSocketFactory",
                                                            InetSocketAddress (Ipv4Address::GetAny (), ulPort));
                       serverApps.Add (ulPacketSinkHelper.Install (remoteHost));
                     }
@@ -826,8 +825,8 @@ main (int argc, char *argv[])
                 {
                   NS_LOG_LOGIC ("installing DASH client app on UE " << u << ", using " << algorithms[u % algorithms.size()]);
                   DashClientHelper dashClientHelper ("ns3::TcpSocketFactory",
-                    InetSocketAddress(remoteHostAddr, dashPort), algorithms[u % algorithms.size()] ); 
-                  
+                    InetSocketAddress(remoteHostAddr, dashPort), algorithms[u % algorithms.size()] );
+
                   dashClientHelper.SetAttribute("VideoId", UintegerValue(u + 1)); // VideoId should be positive
                   dashClientHelper.SetAttribute("TargetDt", TimeValue(Seconds(targetDt)));
                   dashClientHelper.SetAttribute("window", TimeValue(Seconds(window)));
@@ -843,7 +842,7 @@ main (int argc, char *argv[])
                       //dlClientHelper.SetAttribute ("MaxBytes", UintegerValue (0));
                       dlClientHelper.SetAttribute ("MaxBytes", UintegerValue (10000));
                       clientApps.Add (dlClientHelper.Install (remoteHost));
-                      PacketSinkHelper dlPacketSinkHelper ("ns3::TcpSocketFactory", 
+                      PacketSinkHelper dlPacketSinkHelper ("ns3::TcpSocketFactory",
                                                            InetSocketAddress (Ipv4Address::GetAny (), dlPort));
                       serverApps.Add (dlPacketSinkHelper.Install (ue));
                     }
@@ -855,7 +854,7 @@ main (int argc, char *argv[])
                       // ulClientHelper.SetAttribute ("MaxBytes", UintegerValue (0));
                       ulClientHelper.SetAttribute ("MaxBytes", UintegerValue (10000));
                       clientApps.Add (ulClientHelper.Install (ue));
-                      PacketSinkHelper ulPacketSinkHelper ("ns3::TcpSocketFactory", 
+                      PacketSinkHelper ulPacketSinkHelper ("ns3::TcpSocketFactory",
                                                            InetSocketAddress (Ipv4Address::GetAny (), ulPort));
                       serverApps.Add (ulPacketSinkHelper.Install (remoteHost));
                     }
@@ -867,7 +866,7 @@ main (int argc, char *argv[])
                   EpcTft::PacketFilter dlpf;
                   dlpf.localPortStart = dlPort;
                   dlpf.localPortEnd = dlPort;
-                  tft->Add (dlpf); 
+                  tft->Add (dlpf);
                 }
               if (epcUl)
                 {
@@ -888,7 +887,7 @@ main (int argc, char *argv[])
 
             } // end for b
         }
-      
+
       if (useDash)
         {
           ApplicationContainer remoteApps;
@@ -897,7 +896,7 @@ main (int argc, char *argv[])
           remoteApps.Add (dashServerHelper.Install (remoteHost));
           remoteApps.Start(Seconds(0.0));
         }
-    } 
+    }
   else // (epc == false)
     {
       // for radio bearer activation purposes, consider together home UEs and macro UEs
@@ -955,10 +954,11 @@ main (int argc, char *argv[])
       lteHelper->EnablePdcpTraces ();
     }
 
+    AnimationInterface anim ("animation.xml");
   Simulator::Run ();
 
   uint32_t users = clientApps.GetN ();
-  
+
   uint32_t k;
   for (k = 0; k < users; k++)
     {

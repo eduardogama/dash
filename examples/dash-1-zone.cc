@@ -38,6 +38,8 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/ssid.h"
 
+#include "ns3/netanim-module.h"
+
 
 // Default Network Topology
 //
@@ -209,11 +211,18 @@ int main(int argc, char *argv[]) {
                                    "LayoutType", StringValue ("RowFirst"));
 
     mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
-                               "Bounds", RectangleValue (Rectangle (-50, 50, -50, 50)));
+                                "Mode", StringValue ("Time"),
+                                "Time", StringValue ("1s"),
+                                "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
+
+                               "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
     mobility.Install(wifiStaNodes);
 
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
     mobility.Install(wifiApNode);
+    // for (size_t i = 0; i < n_nodes; i++) {
+    //     mobility.Install(nodes.Get(i));
+    // }
 
     // ---------- End Network WiFi Users Setup ---------------------------------
 
@@ -337,6 +346,12 @@ int main(int argc, char *argv[]) {
     // Now, do the actual simulation.
     //
     NS_LOG_INFO("Run Simulation.");
+
+    AnimationInterface anim ("animation.xml");
+
+    anim.SetMaxPktsPerTraceFile(50000);// if u want 50000packets per trace file
+
+    // anim.SetConstantPosition (node, double x, double y);
 
     Simulator::Run();
     Simulator::Destroy();
