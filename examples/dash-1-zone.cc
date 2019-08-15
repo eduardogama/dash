@@ -60,7 +60,7 @@ extern void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::strin
 extern void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users);
 
 uint32_t tRate;
-uint32_t tStalls;
+double tStalls;
 double tStalls_time;
 
 
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
                                 "Time", StringValue ("1s"),
                                 "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
 
-                               "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
+                               "Bounds", RectangleValue (Rectangle (-150, 150, -150, 150)));
     mobility.Install(wifiStaNodes);
 
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -418,12 +418,12 @@ vector<std::string> split(const std::string& str, const std::string& delim) {
 }
 
 void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
-    static bool flag = true;
+    static bool flag = false;
     fstream file;
 
     ostringstream arq;   // stream used for the conversion
 
-    arq << "Interruption_" << tNodes << "_" << users << "_" << layer << ".txt";
+    arq << "PB_events_" << tNodes << "_" << users << "_" << layer << ".txt";
     // arq2 << "TimeInterruptions_" << tNodes << "_" << layer << ".txt";
 
     if (flag) { //para quando iniciar uma simulação apagar o arquivo.
