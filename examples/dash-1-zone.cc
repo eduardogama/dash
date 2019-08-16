@@ -41,13 +41,6 @@
 #include "ns3/netanim-module.h"
 
 
-// Default Network Topology
-//
-//       10.1.1.0
-// n0 -------------- n1 -------------- n2
-//    point-to-point |  point-to-point
-//
-
 using namespace ns3;
 using namespace std;
 
@@ -56,8 +49,10 @@ extern vector<vector<double> > readCordinatesFile (std::string node_coordinates_
 extern void printCoordinateArray (const char* description, vector<vector<double> > coord_array);
 extern void printMatrix (const char* description, vector<vector<int> > array);
 
+extern vector<std::string> split(const std::string& str, const std::string& delim);
 extern void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str);
 extern void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users);
+
 
 uint32_t tRate;
 double tStalls;
@@ -140,9 +135,7 @@ int main(int argc, char *argv[]) {
 
     NS_LOG_INFO("Create channels.");
 
-    //
     // Explicitly create the point-to-point link required by the topology (shown above).
-    //
     PointToPointHelper p2p;
 
     NS_LOG_INFO ("Create Links Between Nodes.");
@@ -206,7 +199,7 @@ int main(int argc, char *argv[]) {
                                    "MinX", DoubleValue (0.0),
                                    "MinY", DoubleValue (0.0),
                                    "DeltaX", DoubleValue (5.0),
-                                   "DeltaY", DoubleValue (10.0),
+                                   "DeltaY", DoubleValue (5.0),
                                    "GridWidth", UintegerValue (3),
                                    "LayoutType", StringValue ("RowFirst"));
 
@@ -214,18 +207,15 @@ int main(int argc, char *argv[]) {
     //                             "Mode", StringValue ("Time"),
     //                             "Time", StringValue ("1s"),
     //                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-    //
-    //                            "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
-    mobility.Install(wifiStaNodes);
-
+    //                             "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+    mobility.Install(wifiStaNodes);
     mobility.Install(wifiApNode);
-    // for (size_t i = 0; i < n_nodes; i++) {
-    //     mobility.Install(nodes.Get(i));
-    // }
+    mobility.Install(nodes);
 
     // ---------- End Network WiFi Users Setup ---------------------------------
 
+    // ---------- Internet Stack Setup -------------------------------------------
     NS_LOG_INFO ("Install Internet Stack to Nodes.");
 
     InternetStackHelper internet;
@@ -258,7 +248,6 @@ int main(int argc, char *argv[]) {
 
 
     // ---------- Applications Setup -------------------------------------------
-
     NS_LOG_INFO("Create Applications.");
 
     std::vector<std::string> protocols;
@@ -302,7 +291,7 @@ int main(int argc, char *argv[]) {
     // ---------- Network Seed Setup ------------------------------------------------
     SeedManager::SetRun(time(0));
     Ptr<UniformRandomVariable> uv = CreateObject<UniformRandomVariable> ();
-    // ---------- Network Seed Setup ------------------------------------------------
+    // ---------- End Network Seed Setup --------------------------------------------
 
     for (uint32_t user = 0; user < users; user++) {
 
@@ -316,8 +305,11 @@ int main(int argc, char *argv[]) {
         client.SetAttribute("TargetDt", TimeValue(Seconds(target_dt)));
         client.SetAttribute("window", TimeValue(Time(window)));
 
+        double rdm = uv->GetValue();
+        std::cout << "Random Variable=" << rdm << '\n';
+
         ApplicationContainer clientApp = client.Install( wifiStaNodes.Get(user) );
-        clientApp.Start(Seconds(0.25 + uv->GetValue()));
+        clientApp.Start(Seconds(0.25 + rdm));
         clientApp.Stop(Seconds(stopTime));
 
         clients.push_back(client);
@@ -333,33 +325,23 @@ int main(int argc, char *argv[]) {
     // Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
     // g.PrintRoutingTableAllAt (Seconds (1), routingStream);
 
-    //
     // Set up tracing if enabled
-    //
     if (tracing) {
         AsciiTraceHelper ascii;
         p2p.EnableAsciiAll(ascii.CreateFileStream("dash-send.tr"));
         p2p.EnablePcapAll("dash-send", false);
     }
 
-    //
     // Now, do the actual simulation.
-    //
     NS_LOG_INFO("Run Simulation.");
 
-    // AnimationInterface anim ("animation.xml");
-
-    // anim.SetMaxPktsPerTraceFile(50000);// if u want 50000packets per trace file
-
-    // anim.SetConstantPosition (node, double x, double y);
+    AnimationInterface anim ("animation.xml");
 
     Simulator::Run();
     Simulator::Destroy();
     NS_LOG_INFO("Done.");
 
-    uint32_t k;
-
-    for (k = 0; k < users; k++) {
+    for (uint16_t k = 0; k < users; k++) {
         Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));
         std::cout << protocols[k % protoNum] << "-Node: " << k;
         std::string str = app->GetStats();
@@ -374,33 +356,43 @@ int main(int argc, char *argv[]) {
 // ---------- Function Definitions -------------------------------------------
 
 void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users) {
-    static bool flag = false;
     fstream file;
 
     ostringstream arq;   // stream used for the conversion
 
     arq << "PB_total_" << tNodes << "_" << users << "_" << layer << ".txt";
 
-    if (flag) { //para quando iniciar uma simulação apagar o arquivo.
-        flag = false;
+    file.open(arq.str().c_str(),fstream::out | fstream::app);
 
-        file.open(arq.str().c_str(),fstream::out);
-        file << "Interruption InterruptionTime avgRate" << endl;
-
-        // file2.open(arq2.str().c_str(),fstream::out);
-        // file2 << "TimeInterruptions" << endl;
-    } else {
-        file.open(arq.str().c_str(),fstream::out | fstream::app);
-        // file2.open(arq2.str().c_str(),fstream::out | fstream::app);
-    }
 
     locale mylocale("");
     file.imbue( mylocale );
 
-    file << tStalls/(users*2) << " " << tStalls_time/(users*2) << " " << tRate/(users*2) << endl;
-    // file << tStalls << " " << tStalls_time << " " << tRate << endl;
+    file << tStalls/(users) << " " << tStalls_time/(users) << " " << tRate/(users) << endl;
 
     file.close();
+}
+
+void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
+    fstream file;
+
+    ostringstream arq;   // stream used for the conversion
+    arq << "PB_events_" << tNodes << "_" << users << "_" << layer << ".txt";
+
+    file.open(arq.str().c_str(),fstream::out | fstream::app);
+
+    locale mylocale("");
+    file.imbue( mylocale );
+
+    //PB per user
+    file << str << endl;
+    file.close();
+
+    vector<string> tokens = split(str, " ");
+
+    tStalls      += std::stoi(tokens[0]);
+    tStalls_time += std::stof(tokens[1]);
+    tRate        += std::stoi(tokens[2]);
 }
 
 vector<std::string> split(const std::string& str, const std::string& delim) {
@@ -415,46 +407,6 @@ vector<std::string> split(const std::string& str, const std::string& delim) {
     } while (pos < str.length() && prev < str.length());
 
     return tokens;
-}
-
-void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
-    static bool flag = false;
-    fstream file;
-
-    ostringstream arq;   // stream used for the conversion
-
-    arq << "PB_events_" << tNodes << "_" << users << "_" << layer << ".txt";
-    // arq2 << "TimeInterruptions_" << tNodes << "_" << layer << ".txt";
-
-    if (flag) { //para quando iniciar uma simulação apagar o arquivo.
-        flag = false;
-
-        file.open(arq.str().c_str(),fstream::out);
-        file << "Interruption InterruptionTime avgRate" << endl;
-
-        // file2.open(arq2.str().c_str(),fstream::out);
-        // file2 << "TimeInterruptions" << endl;
-    } else {
-        file.open(arq.str().c_str(),fstream::out | fstream::app);
-        // file2.open(arq2.str().c_str(),fstream::out | fstream::app);
-    }
-
-    locale mylocale("");
-    file.imbue( mylocale );
-
-    file << str << endl;
-    //PBTOTAL
-    // t = ((double)blockByCont)/tCalls*100;
-    // cout << "Bloqueio por continuidade: " << t << "%" << endl;
-    //cout << "Bloqueio total: " << t << "%" <<  endl;
-    // file << t << endl;
-    file.close();
-
-    vector<string> tokens = split(str, " ");
-
-    tStalls      += std::stoi(tokens[0]);
-    tStalls_time += std::stof(tokens[1]);
-    tRate        += std::stoi(tokens[2]);
 }
 
 vector<vector<int> > readNxNMatrix (std::string adj_mat_file_name) {

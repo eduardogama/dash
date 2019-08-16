@@ -357,9 +357,10 @@ namespace ns3
             << m_rateChanges << " crrS: " << m_segmentId << std::endl;
 
         std::stringstream data;
-        data << m_player.m_interrruptions  << " "
-            << m_player.m_interruption_time.GetSeconds() << " "
-            << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed;
+        data << m_player.m_interrruptions                              << " "
+             << m_player.m_interruption_time.GetSeconds()              << " "
+             << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed << " "
+             << m_sumDt.GetSeconds() / m_player.m_framesPlayed;
 
         return data.str();
     }
