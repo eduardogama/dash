@@ -210,12 +210,12 @@ int main(int argc, char *argv[]) {
                                    "GridWidth", UintegerValue (3),
                                    "LayoutType", StringValue ("RowFirst"));
 
-    mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
-                                "Mode", StringValue ("Time"),
-                                "Time", StringValue ("1s"),
-                                "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-
-                               "Bounds", RectangleValue (Rectangle (-150, 150, -150, 150)));
+    // mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
+    //                             "Mode", StringValue ("Time"),
+    //                             "Time", StringValue ("1s"),
+    //                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
+    //
+    //                            "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
     mobility.Install(wifiStaNodes);
 
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
