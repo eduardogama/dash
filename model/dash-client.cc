@@ -117,6 +117,12 @@ namespace ns3
         }
         target_socket = &m_socket;
 
+        Address addr;
+        m_socket->GetSockName (addr);
+        InetSocketAddress iaddr = InetSocketAddress::ConvertFrom (addr);
+
+        ipAddress = iaddr.GetIpv4();
+
         NS_LOG_INFO("Just started connection");
     }
 
@@ -360,7 +366,8 @@ namespace ns3
         data << m_player.m_interrruptions                              << " "
              << m_player.m_interruption_time.GetSeconds()              << " "
              << (1.0 * m_player.m_totalRate) / m_player.m_framesPlayed << " "
-             << m_sumDt.GetSeconds() / m_player.m_framesPlayed;
+             << m_sumDt.GetSeconds() / m_player.m_framesPlayed         << " "
+             << ipAddress;
 
         return data.str();
     }

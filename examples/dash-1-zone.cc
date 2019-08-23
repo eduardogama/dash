@@ -38,7 +38,8 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/ssid.h"
 
-#include "ns3/netanim-module.h"
+// #include "ns3/netanim-module.h"
+#include "ns3/flow-monitor-helper.h"
 
 
 using namespace ns3;
@@ -151,6 +152,8 @@ int main(int argc, char *argv[]) {
 
                 std::string l = std::to_string(Adj_Matrix[i][j]) + std::string("Mbps");
                 p2p.SetDeviceAttribute("DataRate", StringValue(l));
+                // p2p.SetChannelAttribute("Delay", StringValue("50ms"));
+
 
                 NetDeviceContainer n_devs = p2p.Install (n_links);
 
@@ -317,7 +320,7 @@ int main(int argc, char *argv[]) {
     }
 
     NS_LOG_INFO ("Initialize Global Routing.");
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
     Simulator::Stop(Seconds(stopTime));
 
@@ -335,11 +338,53 @@ int main(int argc, char *argv[]) {
     // Now, do the actual simulation.
     NS_LOG_INFO("Run Simulation.");
 
-    AnimationInterface anim ("animation.xml");
+    // AnimationInterface anim ("animation.xml");
+
+
+    // Flow Monitor -----------------------------------------------------------
+    FlowMonitorHelper flowmon;
+    Ptr<FlowMonitor> monitor = flowmon.InstallAll();
+    monitor->Start (Seconds (0));
+    monitor->Stop (Seconds (stopTime));
+
+    // Ptr<FlowMonitor> flowMonitor;
+    // FlowMonitorHelper flowHelper;
+    // flowMonitor = flowHelper.InstallAll();
+    //
+    // Simulator::Stop (Seconds(stop_time));
+    // Simulator::Run ();
+
+
 
     Simulator::Run();
+
+    // Print per flow statistics
+    monitor->CheckForLostPackets ();
+    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon.GetClassifier ());
+    std::map<FlowId, FlowMonitor::FlowStats> stats = monitor->GetFlowStats ();
+
+    for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator iter = stats.begin (); iter != stats.end (); ++iter) {
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (iter->first);
+
+        // if ((t.sourceAddress == Ipv4Address("10.1.1.1") && t.destinationAddress == Ipv4Address("10.1.1.25"))
+        //     || (t.sourceAddress == Ipv4Address("10.1.1.11") && t.destinationAddress == Ipv4Address("10.1.1.15"))
+        //     || (t.sourceAddress == Ipv4Address("10.1.1.21") && t.destinationAddress == Ipv4Address("10.1.1.5")))
+        // {
+            NS_LOG_UNCOND("Flow ID: " << iter->first << " Src Addr " << t.sourceAddress << " Dst Addr " << t.destinationAddress);
+            NS_LOG_UNCOND("Tx Packets = " << iter->second.txPackets);
+            NS_LOG_UNCOND("Rx Packets = " << iter->second.rxPackets);
+            NS_LOG_UNCOND("Throughput: " << iter->second.rxBytes * 8.0 / (iter->second.timeLastRxPacket.GetSeconds()-iter->second.timeFirstTxPacket.GetSeconds()) / 1024  << " Kbps");
+        // }
+    }
+
+    std::string flowfile = std::string("dash-1-zone-") + std::to_string(n_nodes) + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer) + std::string("xml");
+  	monitor->SerializeToXmlFile (flowfile, true, true);
+
     Simulator::Destroy();
     NS_LOG_INFO("Done.");
+
+    // flowMonitor->SerializeToXmlFile("dash-1-zone.flowmon", true, true);
+
 
     for (uint16_t k = 0; k < users; k++) {
         Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));

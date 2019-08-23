@@ -173,6 +173,8 @@ namespace ns3
         Time m_segmentFetchTime;
 
         uint32_t m_segment_total;
+
+        Ipv4Address ipAddress; 
     };
 
 } // namespace ns3
