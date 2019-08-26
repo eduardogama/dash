@@ -21,3 +21,5 @@ def build(bld):
     obj.source = 'dash-intro.cc'
     obj = bld.create_ns3_program('dash-1-zone', ['dash'])
     obj.source = 'dash-1-zone.cc'
+    obj = bld.create_ns3_program('dash-1-zone-same-dist', ['dash'])
+    obj.source = 'dash-1-zone-same-dist.cc'
