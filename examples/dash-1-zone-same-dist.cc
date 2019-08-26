@@ -53,7 +53,7 @@ extern void printCoordinateArray (const char* description, vector<vector<double>
 extern void printMatrix (const char* description, vector<vector<int> > array);
 
 extern vector<std::string> split(const std::string& str, const std::string& delim);
-extern void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str);
+extern void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, uint16_t &seed, std::string &str);
 extern void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users);
 
 
@@ -356,12 +356,15 @@ int main(int argc, char *argv[]) {
 
     // Now, do the actual simulation.
     NS_LOG_INFO("Run Simulation.");
-    std::string flowfile = std::string("dash-1-zone-same-dist-") + std::to_string(seed) + std::string("-") + std::to_string(n_nodes) + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer);
 
-    dir = std::string( flowfile);
+    std::string flowfile = std::string("dash-1-zone-same-dist-") + std::to_string(seed) + std::string("-") + std::to_string(n_nodes)
+                + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer);
+
+    dir = std::string("dash-1-zone-same-dist-") + std::to_string(n_nodes) + std::string("-")
+            + std::to_string(users) + std::string("-") + std::to_string(layer);
+
     const int dir_err = system(std::string(std::string("mkdir -p ") + dir).c_str() );
-    if (-1 == dir_err)
-    {
+    if (-1 == dir_err) {
         printf("Error creating directory!n");
         exit(1);
     }
@@ -382,15 +385,12 @@ int main(int argc, char *argv[]) {
     Simulator::Destroy();
     NS_LOG_INFO("Done.");
 
-    // flowMonitor->SerializeToXmlFile("dash-1-zone.flowmon", true, true);
-
-
     for (uint16_t k = 0; k < users; k++) {
         Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));
         std::cout << protocols[k % protoNum] << "-Node: " << k;
         std::string str = app->GetStats();
 
-        store(n_nodes, layer, users, str);
+        store(n_nodes, layer, users, seed, str);
     }
     calcAvg(n_nodes, layer, users);
 
@@ -417,11 +417,11 @@ void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users) {
     file.close();
 }
 
-void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
+void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, uint16_t &seed, std::string &str) {
     fstream file;
 
     ostringstream arq;   // stream used for the conversion
-    arq << dir << "/" << "PB_events_" << tNodes << "_" << users << "_" << layer << ".txt";
+    arq << dir << "/" << "Bt_PerUser_" << seed << "_" << tNodes << "_" << users << "_" << layer << ".txt";
 
     file.open(arq.str().c_str(),fstream::out | fstream::app);
 
