@@ -212,9 +212,12 @@ int main(int argc, char *argv[]) {
     //                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
     //                             "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+
+
     mobility.Install(wifiStaNodes);
     mobility.Install(wifiApNode);
     mobility.Install(nodes);
+
 
     // ---------- End Network WiFi Users Setup ---------------------------------
 
@@ -377,7 +380,7 @@ int main(int argc, char *argv[]) {
         // }
     }
 
-    std::string flowfile = std::string("dash-1-zone-") + std::to_string(n_nodes) + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer) + std::string("xml");
+    std::string flowfile = std::string("dash-1-zone-") + std::to_string(n_nodes) + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer) + std::string(".xml");
   	monitor->SerializeToXmlFile (flowfile, true, true);
 
     Simulator::Destroy();

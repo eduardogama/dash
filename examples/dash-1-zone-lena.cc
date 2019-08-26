@@ -38,13 +38,9 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/ssid.h"
 
+// #include "ns3/netanim-module.h"
+#include "ns3/flow-monitor-helper.h"
 
-// Default Network Topology
-//
-//       10.1.1.0
-// n0 -------------- n1 -------------- n2
-//    point-to-point |  point-to-point
-//
 
 using namespace ns3;
 using namespace std;
@@ -54,15 +50,126 @@ extern vector<vector<double> > readCordinatesFile (std::string node_coordinates_
 extern void printCoordinateArray (const char* description, vector<vector<double> > coord_array);
 extern void printMatrix (const char* description, vector<vector<int> > array);
 
+extern vector<std::string> split(const std::string& str, const std::string& delim);
 extern void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str);
 extern void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users);
 
+
 uint32_t tRate;
-uint32_t tStalls;
+double tStalls;
 double tStalls_time;
 
 
 NS_LOG_COMPONENT_DEFINE("DashExample");
+
+bool AreOverlapping (Box a, Box b) {
+    return !((a.xMin > b.xMax) || (b.xMin > a.xMax) || (a.yMin > b.yMax) || (b.yMin > a.yMax));
+}
+
+/**
+ * Class that takes care of installing blocks of the
+ * buildings in a given area. Buildings are installed in pairs
+ * as in dual stripe scenario.
+ */
+class FemtocellBlockAllocator
+{
+    public:
+        /**
+        * Constructor
+        * \param area the total area
+        * \param nApartmentsX the number of apartments in the X direction
+        * \param nFloors the number of floors
+        */
+        FemtocellBlockAllocator (Box area, uint32_t nApartmentsX, uint32_t nFloors);
+        /**
+        * Function that creates building blocks.
+        * \param n the number of blocks to create
+        */
+        void Create (uint32_t n);
+        /// Create function
+        void Create ();
+
+    private:
+        /**
+        * Function that checks if the box area is overlapping with some of previously created building blocks.
+        * \param box the area to check
+        * \returns true if there is an overlap
+        */
+        bool OverlapsWithAnyPrevious (Box box);
+        Box m_area; ///< Area
+        uint32_t m_nApartmentsX; ///< X apartments
+        uint32_t m_nFloors; ///< number of floors
+        std::list<Box> m_previousBlocks; ///< previous bocks
+        double m_xSize; ///< X size
+        double m_ySize; ///< Y size
+        Ptr<UniformRandomVariable> m_xMinVar; ///< X minimum variance
+        Ptr<UniformRandomVariable> m_yMinVar; ///< Y minimum variance
+
+};
+
+FemtocellBlockAllocator::FemtocellBlockAllocator (Box area, uint32_t nApartmentsX, uint32_t nFloors)
+  : m_area (area),
+    m_nApartmentsX (nApartmentsX),
+    m_nFloors (nFloors),
+    m_xSize (nApartmentsX*10 + 20),
+    m_ySize (70)
+{
+    m_xMinVar = CreateObject<UniformRandomVariable> ();
+    m_xMinVar->SetAttribute ("Min", DoubleValue (area.xMin));
+    m_xMinVar->SetAttribute ("Max", DoubleValue (area.xMax - m_xSize));
+    m_yMinVar = CreateObject<UniformRandomVariable> ();
+    m_yMinVar->SetAttribute ("Min", DoubleValue (area.yMin));
+    m_yMinVar->SetAttribute ("Max", DoubleValue (area.yMax - m_ySize));
+}
+
+void FemtocellBlockAllocator::Create (uint32_t n)
+{
+    for (uint32_t i = 0; i < n; ++i) {
+        Create ();
+    }
+}
+
+void FemtocellBlockAllocator::Create ()
+{
+    Box box;
+    uint32_t attempt = 0;
+    do
+    {
+        NS_ASSERT_MSG (attempt < 100, "Too many failed attempts to position apartment block. Too many blocks? Too small area?");
+        box.xMin = m_xMinVar->GetValue ();
+        box.xMax = box.xMin + m_xSize;
+        box.yMin = m_yMinVar->GetValue ();
+        box.yMax = box.yMin + m_ySize;
+        ++attempt;
+    } while (OverlapsWithAnyPrevious (box));
+
+    NS_LOG_LOGIC ("allocated non overlapping block " << box);
+    m_previousBlocks.push_back (box);
+    Ptr<GridBuildingAllocator>  gridBuildingAllocator;
+    gridBuildingAllocator = CreateObject<GridBuildingAllocator> ();
+    gridBuildingAllocator->SetAttribute ("GridWidth", UintegerValue (1));
+    gridBuildingAllocator->SetAttribute ("LengthX", DoubleValue (10*m_nApartmentsX));
+    gridBuildingAllocator->SetAttribute ("LengthY", DoubleValue (10*2));
+    gridBuildingAllocator->SetAttribute ("DeltaX", DoubleValue (10));
+    gridBuildingAllocator->SetAttribute ("DeltaY", DoubleValue (10));
+    gridBuildingAllocator->SetAttribute ("Height", DoubleValue (3*m_nFloors));
+    gridBuildingAllocator->SetBuildingAttribute ("NRoomsX", UintegerValue (m_nApartmentsX));
+    gridBuildingAllocator->SetBuildingAttribute ("NRoomsY", UintegerValue (2));
+    gridBuildingAllocator->SetBuildingAttribute ("NFloors", UintegerValue (m_nFloors));
+    gridBuildingAllocator->SetAttribute ("MinX", DoubleValue (box.xMin + 10));
+    gridBuildingAllocator->SetAttribute ("MinY", DoubleValue (box.yMin + 10));
+    gridBuildingAllocator->Create (2);
+}
+
+bool FemtocellBlockAllocator::OverlapsWithAnyPrevious (Box box)
+{
+    for (std::list<Box>::iterator it = m_previousBlocks.begin (); it != m_previousBlocks.end (); ++it) {
+        if (AreOverlapping (*it, box)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -72,7 +179,7 @@ int main(int argc, char *argv[]) {
 
     bool tracing         = false;
     uint32_t maxBytes    = 100;
-    uint32_t n_nodes     = 6;
+    uint32_t n_nodes     = 5;
     uint32_t users       = 1;
     uint32_t layer       = 0;
     double target_dt     = 35.0;
@@ -87,10 +194,8 @@ int main(int argc, char *argv[]) {
     // LogComponentEnable ("DashClient", LOG_LEVEL_ALL);
     LogComponentEnable ("DashExample", LOG_LEVEL_ALL);
 
-    //
     // Allow the user to override any of the defaults at
     // run-time, via command-line arguments
-    //
     CommandLine cmd;
     cmd.AddValue("tracing", "Flag to enable/disable tracing", tracing);
     cmd.AddValue("maxBytes", "Total number of bytes for application to send",
@@ -116,19 +221,43 @@ int main(int argc, char *argv[]) {
       "The window for measuring the average throughput (Time).", window);
     cmd.Parse(argc, argv);
 
-    std::string adj_mat_file_name ("src/dash/examples/adjacency_matrix_6_nodes.txt");
+    std::string adj_mat_file_name ("src/dash/examples/adjacency_matrix_5_nodes.txt");
     // std::string node_coordinates_file_name ("examples/matrix-topology/node_coordinates.txt");
 
     // ---------- Read Adjacency Matrix ----------------------------------------
+
+    uint32_t nMacroEnbSites = 3;
+
+    
     vector<vector<int> > Adj_Matrix;
     Adj_Matrix = readNxNMatrix (adj_mat_file_name);
 
     printMatrix ("Initial network", Adj_Matrix);
+
+    uint32_t currentSite = nMacroEnbSites -1;
+    uint32_t biRowIndex = (currentSite / (nMacroEnbSitesX + nMacroEnbSitesX + 1));
+    uint32_t biRowRemainder = currentSite % (nMacroEnbSitesX + nMacroEnbSitesX + 1);
+    uint32_t rowIndex = biRowIndex*2 + 1;
+    if (biRowRemainder >= nMacroEnbSitesX) {
+        ++rowIndex;
+    }
+    uint32_t nMacroEnbSitesY = rowIndex;
+    NS_LOG_LOGIC ("nMacroEnbSitesY = " << nMacroEnbSitesY);
+
+    macroUeBox = Box (-areaMarginFactor*interSiteDistance,
+                    (nMacroEnbSitesX + areaMarginFactor)*interSiteDistance,
+                    -areaMarginFactor*interSiteDistance,
+                    (nMacroEnbSitesY -1)*interSiteDistance*sqrt (0.75) + areaMarginFactor*interSiteDistance,
+                    ueZ, ueZ);
+
+
     // ---------- End of Read Adjacency Matrix ---------------------------------
 
     // ---------- Network Setup ------------------------------------------------
 
+    //
     // Explicitly create the nodes required by the topology (shown above).
+    //
     NS_LOG_INFO("Create nodes.");
 
     NodeContainer nodes;   // Declare nodes objects
@@ -152,6 +281,8 @@ int main(int argc, char *argv[]) {
 
                 std::string l = std::to_string(Adj_Matrix[i][j]) + std::string("Mbps");
                 p2p.SetDeviceAttribute("DataRate", StringValue(l));
+                // p2p.SetChannelAttribute("Delay", StringValue("50ms"));
+
 
                 NetDeviceContainer n_devs = p2p.Install (n_links);
 
@@ -172,8 +303,7 @@ int main(int argc, char *argv[]) {
     NodeContainer wifiStaNodes;
     wifiStaNodes.Create(users);
 
-    NodeContainer wifiApNode1 = nodes.Get(4);
-    NodeContainer wifiApNode2 = nodes.Get(5);
+    NodeContainer wifiApNode = nodes.Get(4);
 
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy = YansWifiPhyHelper::Default();
@@ -201,19 +331,23 @@ int main(int argc, char *argv[]) {
                                    "MinX", DoubleValue (0.0),
                                    "MinY", DoubleValue (0.0),
                                    "DeltaX", DoubleValue (5.0),
-                                   "DeltaY", DoubleValue (10.0),
+                                   "DeltaY", DoubleValue (5.0),
                                    "GridWidth", UintegerValue (3),
                                    "LayoutType", StringValue ("RowFirst"));
 
-    mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
-                               "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
-    mobility.Install(wifiStaNodes);
-
+    // mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
+    //                             "Mode", StringValue ("Time"),
+    //                             "Time", StringValue ("1s"),
+    //                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
+    //                             "Bounds", RectangleValue (Rectangle (-100, 100, -100, 100)));
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+    mobility.Install(wifiStaNodes);
     mobility.Install(wifiApNode);
+    mobility.Install(nodes);
 
     // ---------- End Network WiFi Users Setup ---------------------------------
 
+    // ---------- Internet Stack Setup -------------------------------------------
     NS_LOG_INFO ("Install Internet Stack to Nodes.");
 
     InternetStackHelper internet;
@@ -246,7 +380,6 @@ int main(int argc, char *argv[]) {
 
 
     // ---------- Applications Setup -------------------------------------------
-
     NS_LOG_INFO("Create Applications.");
 
     std::vector<std::string> protocols;
@@ -290,7 +423,7 @@ int main(int argc, char *argv[]) {
     // ---------- Network Seed Setup ------------------------------------------------
     SeedManager::SetRun(time(0));
     Ptr<UniformRandomVariable> uv = CreateObject<UniformRandomVariable> ();
-    // ---------- Network Seed Setup ------------------------------------------------
+    // ---------- End Network Seed Setup --------------------------------------------
 
     for (uint32_t user = 0; user < users; user++) {
 
@@ -304,8 +437,11 @@ int main(int argc, char *argv[]) {
         client.SetAttribute("TargetDt", TimeValue(Seconds(target_dt)));
         client.SetAttribute("window", TimeValue(Time(window)));
 
+        double rdm = uv->GetValue();
+        std::cout << "Random Variable=" << rdm << '\n';
+
         ApplicationContainer clientApp = client.Install( wifiStaNodes.Get(user) );
-        clientApp.Start(Seconds(0.25 + uv->GetValue()));
+        clientApp.Start(Seconds(0.25 + rdm));
         clientApp.Stop(Seconds(stopTime));
 
         clients.push_back(client);
@@ -313,9 +449,9 @@ int main(int argc, char *argv[]) {
     }
 
     NS_LOG_INFO ("Initialize Global Routing.");
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    Simulator::Stop (Seconds (stopTime));
+    Simulator::Stop(Seconds(stopTime));
 
     // Ipv4GlobalRoutingHelper g;
     // Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("dynamic-global-routing.routes", std::ios::out);
@@ -328,18 +464,58 @@ int main(int argc, char *argv[]) {
         p2p.EnablePcapAll("dash-send", false);
     }
 
-    //
     // Now, do the actual simulation.
-    //
     NS_LOG_INFO("Run Simulation.");
 
+    // AnimationInterface anim ("animation.xml");
+
+
+    // Flow Monitor -----------------------------------------------------------
+    FlowMonitorHelper flowmon;
+    Ptr<FlowMonitor> monitor = flowmon.InstallAll();
+    monitor->Start (Seconds (0));
+    monitor->Stop (Seconds (stopTime));
+
+    // Ptr<FlowMonitor> flowMonitor;
+    // FlowMonitorHelper flowHelper;
+    // flowMonitor = flowHelper.InstallAll();
+    //
+    // Simulator::Stop (Seconds(stop_time));
+    // Simulator::Run ();
+
+
+
     Simulator::Run();
+
+    // Print per flow statistics
+    monitor->CheckForLostPackets ();
+    Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon.GetClassifier ());
+    std::map<FlowId, FlowMonitor::FlowStats> stats = monitor->GetFlowStats ();
+
+    for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator iter = stats.begin (); iter != stats.end (); ++iter) {
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (iter->first);
+
+        // if ((t.sourceAddress == Ipv4Address("10.1.1.1") && t.destinationAddress == Ipv4Address("10.1.1.25"))
+        //     || (t.sourceAddress == Ipv4Address("10.1.1.11") && t.destinationAddress == Ipv4Address("10.1.1.15"))
+        //     || (t.sourceAddress == Ipv4Address("10.1.1.21") && t.destinationAddress == Ipv4Address("10.1.1.5")))
+        // {
+            NS_LOG_UNCOND("Flow ID: " << iter->first << " Src Addr " << t.sourceAddress << " Dst Addr " << t.destinationAddress);
+            NS_LOG_UNCOND("Tx Packets = " << iter->second.txPackets);
+            NS_LOG_UNCOND("Rx Packets = " << iter->second.rxPackets);
+            NS_LOG_UNCOND("Throughput: " << iter->second.rxBytes * 8.0 / (iter->second.timeLastRxPacket.GetSeconds()-iter->second.timeFirstTxPacket.GetSeconds()) / 1024  << " Kbps");
+        // }
+    }
+
+    std::string flowfile = std::string("dash-1-zone-") + std::to_string(n_nodes) + std::string("-") + std::to_string(users) + std::string("-") + std::to_string(layer) + std::string(".xml");
+  	monitor->SerializeToXmlFile (flowfile, true, true);
+
     Simulator::Destroy();
     NS_LOG_INFO("Done.");
 
-    uint32_t k;
+    // flowMonitor->SerializeToXmlFile("dash-1-zone.flowmon", true, true);
 
-    for (k = 0; k < users; k++) {
+
+    for (uint16_t k = 0; k < users; k++) {
         Ptr<DashClient> app = DynamicCast<DashClient>(clientApps[k].Get(0));
         std::cout << protocols[k % protoNum] << "-Node: " << k;
         std::string str = app->GetStats();
@@ -354,33 +530,43 @@ int main(int argc, char *argv[]) {
 // ---------- Function Definitions -------------------------------------------
 
 void calcAvg(uint32_t &tNodes, uint32_t &layer, uint32_t &users) {
-    static bool flag = false;
     fstream file;
 
     ostringstream arq;   // stream used for the conversion
 
     arq << "PB_total_" << tNodes << "_" << users << "_" << layer << ".txt";
 
-    if (flag) { //para quando iniciar uma simulação apagar o arquivo.
-        flag = false;
+    file.open(arq.str().c_str(),fstream::out | fstream::app);
 
-        file.open(arq.str().c_str(),fstream::out);
-        file << "Interruption InterruptionTime avgRate" << endl;
-
-        // file2.open(arq2.str().c_str(),fstream::out);
-        // file2 << "TimeInterruptions" << endl;
-    } else {
-        file.open(arq.str().c_str(),fstream::out | fstream::app);
-        // file2.open(arq2.str().c_str(),fstream::out | fstream::app);
-    }
 
     locale mylocale("");
     file.imbue( mylocale );
 
-    file << tStalls/(users*2) << " " << tStalls_time/(users*2) << " " << tRate/(users*2) << endl;
-    // file << tStalls << " " << tStalls_time << " " << tRate << endl;
+    file << tStalls/(users) << " " << tStalls_time/(users) << " " << tRate/(users) << endl;
 
     file.close();
+}
+
+void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
+    fstream file;
+
+    ostringstream arq;   // stream used for the conversion
+    arq << "PB_events_" << tNodes << "_" << users << "_" << layer << ".txt";
+
+    file.open(arq.str().c_str(),fstream::out | fstream::app);
+
+    locale mylocale("");
+    file.imbue( mylocale );
+
+    //PB per user
+    file << str << endl;
+    file.close();
+
+    vector<string> tokens = split(str, " ");
+
+    tStalls      += std::stoi(tokens[0]);
+    tStalls_time += std::stof(tokens[1]);
+    tRate        += std::stoi(tokens[2]);
 }
 
 vector<std::string> split(const std::string& str, const std::string& delim) {
@@ -395,46 +581,6 @@ vector<std::string> split(const std::string& str, const std::string& delim) {
     } while (pos < str.length() && prev < str.length());
 
     return tokens;
-}
-
-void store(uint32_t &tNodes, uint32_t &layer, uint32_t &users, std::string &str) {
-    static bool flag = true;
-    fstream file;
-
-    ostringstream arq;   // stream used for the conversion
-
-    arq << "Interruption_" << tNodes << "_" << users << "_" << layer << ".txt";
-    // arq2 << "TimeInterruptions_" << tNodes << "_" << layer << ".txt";
-
-    if (flag) { //para quando iniciar uma simulação apagar o arquivo.
-        flag = false;
-
-        file.open(arq.str().c_str(),fstream::out);
-        file << "Interruption InterruptionTime avgRate" << endl;
-
-        // file2.open(arq2.str().c_str(),fstream::out);
-        // file2 << "TimeInterruptions" << endl;
-    } else {
-        file.open(arq.str().c_str(),fstream::out | fstream::app);
-        // file2.open(arq2.str().c_str(),fstream::out | fstream::app);
-    }
-
-    locale mylocale("");
-    file.imbue( mylocale );
-
-    file << str << endl;
-    //PBTOTAL
-    // t = ((double)blockByCont)/tCalls*100;
-    // cout << "Bloqueio por continuidade: " << t << "%" << endl;
-    //cout << "Bloqueio total: " << t << "%" <<  endl;
-    // file << t << endl;
-    file.close();
-
-    vector<string> tokens = split(str, " ");
-
-    tStalls      += std::stoi(tokens[0]);
-    tStalls_time += std::stof(tokens[1]);
-    tRate        += std::stoi(tokens[2]);
 }
 
 vector<vector<int> > readNxNMatrix (std::string adj_mat_file_name) {
